@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rose Bianco Price Estimator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter (default) and Montserrat (premium title font) fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Customizing colors using CSS variables (and Tailwind config for utility classes) */
+        :root {
+            --rb-burgundy: #582C3D;
+            --rb-beige: #F4EBD8;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* CSS to hide up/down arrows (spinners) for number inputs */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        
+        /* Ensure the main container is centered and takes full viewport height */
+        .full-screen-center {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+    </style>
+    <script>
+        // Configure Tailwind with custom brand colors
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'rb-burgundy': 'var(--rb-burgundy)',
+                        'rb-beige': 'var(--rb-beige)',
+                    }
+                }
+            }
+        }
+
+        /**
+         * Performs the selling price calculation based on the formula:
+         * Selling Price = (((RMB * 21) + WEIGHT + 945) * 1.30) (30% markup)
+         */
+        function calculatePrice() {
+            const rmbInput = document.getElementById('rmb-input');
+            const weightInput = document.getElementById('weight-input');
+            const outputElement = document.getElementById('output-price');
+            
+            // Get numerical values
+            const rmb = parseFloat(rmbInput.value);
+            const weight = parseFloat(weightInput.value);
+
+            // Set styling for the final result state
+            outputElement.classList.remove('text-2xl', 'opacity-75');
+            outputElement.classList.add('text-rb-beige', 'text-5xl', 'opacity-100');
+            
+            // 1. Check if both inputs are valid and greater than zero
+            if (isNaN(rmb) || rmb <= 0 || isNaN(weight) || weight <= 0) {
+                // Set styling for the prompt state
+                outputElement.classList.remove('text-5xl', 'opacity-100');
+                outputElement.classList.add('text-2xl', 'opacity-75');
+                outputElement.textContent = "Enter values for both inputs.";
+                return;
+            }
+
+            // 2. Core calculation: ((RMB * 21) + WEIGHT + 945)
+            const baseTotal = (rmb * 21) + weight + 945;
+
+            // 3. Apply 30% markup: * 1.30
+            const finalPrice = baseTotal * 1.30;
+
+            // 4. Display the result rounded to a whole number (toFixed(0)) and add the ৳ symbol
+            outputElement.textContent = finalPrice.toFixed(0) + ' ৳';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const outputElement = document.getElementById('output-price');
+
+            // Set initial state for the output
+            outputElement.textContent = "Enter values for both inputs.";
+            outputElement.classList.add('text-rb-beige', 'text-2xl', 'opacity-75'); 
+
+            // Attach event listeners ONLY to the button and Enter key 
+            document.getElementById('calculate-btn').addEventListener('click', calculatePrice);
+            
+            // Enable calculation on 'Enter' key press in either input field
+            document.getElementById('rmb-input').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') calculatePrice();
+            });
+            document.getElementById('weight-input').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') calculatePrice();
+            });
+        });
+        
+    </script>
+</head>
+<body class="bg-rb-burgundy full-screen-center">
+
+    <!-- Calculator Container -->
+    <div class="w-full max-w-md bg-rb-burgundy/80 backdrop-blur-sm shadow-2xl p-6 md:p-8 rounded-xl border border-rb-beige/30">
+        
+        <!-- Header and Logo -->
+        <!-- Removed mb-8 from header to reduce gap below logo -->
+        <header class="text-center mb-0">
+            
+            <!-- LOGO: Removed mb-3 from image to reduce gap below logo -->
+            <img 
+                src="https://i.imgur.com/NQ83zYJ.png" 
+                alt="Rose Bianco Logo" 
+                referrerpolicy="no-referrer"
+                class="mx-auto w-64 h-64 object-contain"
+            >
+            
+            <!-- Title and Subtitle removed as requested -->
+        </header>
+
+        <!-- Input Fields -->
+        <!-- Added pt-4 here to restore a small visual break between logo and inputs -->
+        <div class="space-y-6 pt-4">
+            
+            <!-- RMB Input -->
+            <div>
+                <label for="rmb-input" class="block text-sm font-medium text-rb-beige mb-2">
+                    RMB (¥)
+                </label>
+                <input 
+                    type="number" 
+                    id="rmb-input" 
+                    placeholder="e.g., 500"
+                    min="0"
+                    class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
+                >
+            </div>
+            
+            <!-- Weight Input -->
+            <div>
+                <label for="weight-input" class="block text-sm font-medium text-rb-beige mb-2">
+                    WEIGHT (G)
+                </label>
+                <input 
+                    type="number" 
+                    id="weight-input" 
+                    placeholder="e.g., 120"
+                    min="0"
+                    class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
+                >
+            </div>
+            
+        </div>
+
+        <!-- Calculate Button -->
+        <button 
+            id="calculate-btn" 
+            class="mt-8 w-full py-3 bg-rb-beige text-rb-burgundy font-bold text-lg rounded-lg shadow-xl hover:shadow-rb-beige/40 transition duration-300 ease-in-out transform hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-rb-beige/50"
+        >
+            Calculate
+        </button>
+
+        <!-- Result Display -->
+        <div class="mt-8 pt-6 border-t border-rb-beige/50 text-center">
+            <div class="flex flex-col items-center">
+                <!-- Output price displayed here -->
+                <span id="output-price" class="font-extrabold transition-all duration-300 tracking-tighter">
+                    
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
