@@ -39,6 +39,40 @@
             padding: 1rem;
         }
 
+        /* Toggle Button Styles */
+        .toggle-container {
+            position: relative;
+            background-color: rgba(244, 235, 216, 0.2); /* rb-beige with opacity */
+            border-radius: 9999px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: calc(50% - 4px);
+            height: calc(100% - 8px);
+            background-color: #F4EBD8;
+            border-radius: 9999px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+        }
+
+        /* State for Direct Mode (Right side) */
+        .mode-direct .toggle-slider {
+            transform: translateX(100%);
+            left: 0px; /* Reset left to ensure transform works cleanly */
+        }
+
+        /* Transition for text colors */
+        .toggle-text {
+            transition: color 0.3s ease;
+            z-index: 20;
+            position: relative;
+        }
+
     </style>
     <script>
         // Configure Tailwind with custom brand colors
@@ -53,155 +87,269 @@
             }
         }
 
+        // --- GLOBAL STATE ---
+        let currentMode = 'import'; // 'import' or 'direct'
+
         /**
-         * Performs the selling price calculation based on the formula:
-         * Selling Price = (((RMB * 21) + WEIGHT + 945 'currenty 825') * 1.30) (20% markup)
+         * Switches the calculator mode
+         */
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            const sliderContainer = document.getElementById('mode-toggle-container');
+            const importInputs = document.getElementById('inputs-import');
+            const directInputs = document.getElementById('inputs-direct');
+            const labelImport = document.getElementById('label-import');
+            const labelDirect = document.getElementById('label-direct');
+            const outputElement = document.getElementById('output-price');
+            const originalPriceElement = document.getElementById('original-price');
+            const categorySelect = document.getElementById('category-select');
+
+            // Reset Result
+            outputElement.textContent = "Enter values";
+            outputElement.classList.remove('text-5xl', 'opacity-100');
+            outputElement.classList.add('text-2xl', 'opacity-75');
+            originalPriceElement.classList.add('hidden');
+
+            // --- DROPDOWN LOGIC ---
+            // Clear existing options
+            categorySelect.innerHTML = '';
+
+            if (mode === 'import') {
+                // UI: Move slider to left
+                sliderContainer.classList.remove('mode-direct');
+                
+                // Show Import Inputs
+                importInputs.classList.remove('hidden');
+                directInputs.classList.add('hidden');
+
+                // Text Styling
+                labelImport.classList.add('text-rb-burgundy', 'font-bold');
+                labelImport.classList.remove('text-rb-beige');
+                labelDirect.classList.remove('text-rb-burgundy', 'font-bold');
+                labelDirect.classList.add('text-rb-beige');
+
+                // Populate Dropdown for IMPORT (Include Customer)
+                const options = [
+                    { val: 'customer', text: 'Customer' },
+                    { val: 'friends', text: 'Friends & Relatives' },
+                    { val: 'family', text: 'Family' },
+                    { val: 'personal', text: 'Personal' }
+                ];
+                options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.val;
+                    el.textContent = opt.text;
+                    categorySelect.appendChild(el);
+                });
+                categorySelect.value = 'customer'; // Default
+
+            } else {
+                // UI: Move slider to right
+                sliderContainer.classList.add('mode-direct');
+
+                // Show Direct Inputs
+                importInputs.classList.add('hidden');
+                directInputs.classList.remove('hidden');
+
+                // Text Styling
+                labelDirect.classList.add('text-rb-burgundy', 'font-bold');
+                labelDirect.classList.remove('text-rb-beige');
+                labelImport.classList.remove('text-rb-burgundy', 'font-bold');
+                labelImport.classList.add('text-rb-beige');
+
+                // Populate Dropdown for DIRECT (Exclude Customer)
+                const options = [
+                    { val: 'friends', text: 'Friends & Relatives' },
+                    { val: 'family', text: 'Family' },
+                    { val: 'personal', text: 'Personal' }
+                ];
+                options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.val;
+                    el.textContent = opt.text;
+                    categorySelect.appendChild(el);
+                });
+                categorySelect.value = 'friends'; // Default since Customer is gone
+            }
+        }
+
+        /**
+         * Performs the selling price calculation based on active mode
          */
         function calculatePrice() {
-            const rmbInput = document.getElementById('rmb-input');
-            const weightInput = document.getElementById('weight-input');
+            const categorySelect = document.getElementById('category-select');
             const outputElement = document.getElementById('output-price');
-            const originalPriceElement = document.getElementById('original-price'); // NEW: Get original price span
-            const categorySelect = document.getElementById('category-select'); // <-- FIX: Defined categorySelect here
-            
-            // Get numerical values
-            const rmb = parseFloat(rmbInput.value);
-            const weight = parseFloat(weightInput.value);
-
-            // Set styling for the final result state
-            outputElement.classList.remove('text-2xl', 'opacity-75');
-            outputElement.classList.add('text-rb-beige', 'text-5xl', 'opacity-100');
-            
-            // 1. Check if both inputs are valid and greater than zero
-            if (isNaN(rmb) || rmb <= 0 || isNaN(weight) || weight <= 0) {
-                // Set styling for the prompt state
-                outputElement.classList.remove('text-5xl', 'opacity-100');
-                outputElement.classList.add('text-2xl', 'opacity-75');
-                outputElement.textContent = "Enter values for both inputs.";
-                originalPriceElement.classList.add('hidden'); // NEW: Hide original price
-                return;
-            }
-
-            // Get category value *after* check, since categorySelect is now defined
+            const originalPriceElement = document.getElementById('original-price'); 
             const category = categorySelect.value;
+            
+            let finalPrice = 0;
 
-            let baseConstant = 825;
-            let markup = 1.30;
-            let extraFee = 1.0; // Default: no extra fee
+            // --- 1. IMPORT MODE CALCULATION ---
+            if (currentMode === 'import') {
+                const rmbInput = document.getElementById('rmb-input');
+                const weightInput = document.getElementById('weight-input');
+                const rmb = parseFloat(rmbInput.value);
+                const weight = parseFloat(weightInput.value);
 
-            switch (category) {
-                case 'customer':
-                    baseConstant = 825;
-                    markup = 1.30; // 30% markup
-                    extraFee = 1.01; // Add 1% on top of the marked-up price
-                    break;
-                case 'friends':
-                    baseConstant = 825;
-                    markup = 1.05; // 5% markup
-                    extraFee = 1.01;
-                    break;
-                case 'family':
-                    baseConstant = 825;
-                    markup = 1.00; // 0% markup
-                    extraFee = 1.0;
-                    break;
-                case 'personal':
-                    baseConstant = 225;
-                    markup = 1.00; // 0% markup
-                    extraFee = 1.0;
-                    break;
+                if (isNaN(rmb) || rmb <= 0 || isNaN(weight) || weight <= 0) {
+                    showError("Enter RMB and Weight.");
+                    return;
+                }
+
+                // Constants for Import
+                let baseConstant = 825;
+                let markup = 1.30;
+                let extraFee = 1.01; 
+
+                switch (category) {
+                    case 'customer':
+                        baseConstant = 825;
+                        markup = 1.30; 
+                        extraFee = 1.01; 
+                        break;
+                    case 'friends':
+                        baseConstant = 825;
+                        markup = 1.05; 
+                        extraFee = 1.01;
+                        break;
+                    case 'family':
+                        baseConstant = 825;
+                        markup = 1.00;
+                        extraFee = 1.0;
+                        break;
+                    case 'personal':
+                        baseConstant = 225;
+                        markup = 1.00; 
+                        extraFee = 1.0;
+                        break;
+                }
+
+                const baseTotal = (rmb * 21) + weight + baseConstant;
+                const markedUpPrice = baseTotal * markup;
+                finalPrice = markedUpPrice * extraFee;
+            } 
+            
+            // --- 2. DIRECT MODE CALCULATION (REVERSE LOGIC) ---
+            else {
+                const bdtInput = document.getElementById('bdt-input');
+                const customerPrice = parseFloat(bdtInput.value);
+
+                if (isNaN(customerPrice) || customerPrice <= 0) {
+                    showError("Enter Customer Price.");
+                    return;
+                }
+
+                // Reverse Engineer the "Base Cost" from the Customer Price
+                // Formula: Customer Price = BaseCost * 1.30 (markup) * 1.01 (extra fee)
+                // Therefore: BaseCost = Customer Price / (1.30 * 1.01)
+                const customerBaseCost = customerPrice / (1.30 * 1.01);
+
+                switch (category) {
+                    case 'friends':
+                        // Friends: Base * 1.05 * 1.01
+                        finalPrice = customerBaseCost * 1.05 * 1.01;
+                        break;
+                    case 'family':
+                        // Family: Base * 1.00 (No extra fee in previous logic, assuming same here)
+                        // Note: Previous logic for family was markup 1.00, extraFee 1.0.
+                        finalPrice = customerBaseCost * 1.00; 
+                        break;
+                    case 'personal':
+                        // Personal is tricky. In Import mode, Personal uses constant 225. Customer uses 825.
+                        // Difference is 600.
+                        // So Personal Base = Customer Base - 600.
+                        const personalBaseCost = customerBaseCost - 600;
+                        finalPrice = personalBaseCost; // Personal markup is 1.0, fee is 1.0
+                        break;
+                }
             }
 
-            // 2. Core calculation
-            const baseTotal = (rmb * 21) + weight + baseConstant;
-
-            // 3. Apply markup
-            let markedUpPrice = baseTotal * markup;
-
-            // 4. Apply extra fee
-            let finalPrice = markedUpPrice * extraFee; // This is the unrounded price
-
-            // --- NEW: Rounding Logic ---
+            // 3. Rounding Logic (Shared)
             const unroundedPrice = finalPrice; 
             const remainder = unroundedPrice % 10;
-            let roundedPrice = unroundedPrice; // Start with the original
+            let roundedPrice = unroundedPrice;
 
-            if (remainder > 0 && remainder < 5) {
-                // e.g., 1253 -> 1253 - 3 + 5 = 1255
-                roundedPrice = unroundedPrice - remainder + 5;
-            } else if (remainder > 5) {
-                // e.g., 1256 -> 1256 - 6 + 10 = 1260
-                roundedPrice = unroundedPrice - remainder + 10;
+            // Only round up if positive price (handle edge case where personal price calculation might be low/negative if input is tiny)
+            if (roundedPrice > 0) {
+                if (remainder > 0 && remainder < 5) {
+                    roundedPrice = unroundedPrice - remainder + 5;
+                } else if (remainder > 5) {
+                    roundedPrice = unroundedPrice - remainder + 10;
+                }
             }
-            // --- END NEW ---
 
-
-            // 5. Display the result rounded to a whole number (toFixed(0)) and add the ৳ symbol
+            // 4. Display Result
+            outputElement.classList.remove('text-2xl', 'opacity-75');
+            outputElement.classList.add('text-rb-beige', 'text-5xl', 'opacity-100');
             outputElement.textContent = '৳ ' + roundedPrice.toFixed(0);
             
-            // Show and set original price
             originalPriceElement.textContent = `(Original: ৳ ${unroundedPrice.toFixed(0)})`;
-            originalPriceElement.classList.remove('hidden'); // NEW: Show the element
+            originalPriceElement.classList.remove('hidden');
+        }
+
+        function showError(message) {
+            const outputElement = document.getElementById('output-price');
+            const originalPriceElement = document.getElementById('original-price');
+            
+            outputElement.classList.remove('text-5xl', 'opacity-100');
+            outputElement.classList.add('text-2xl', 'opacity-75');
+            outputElement.textContent = message;
+            originalPriceElement.classList.add('hidden');
         }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             const outputElement = document.getElementById('output-price');
-            const originalPriceElement = document.getElementById('original-price'); // NEW
+            const originalPriceElement = document.getElementById('original-price');
             
             // --- Arrow rotation logic ---
             const categorySelect = document.getElementById('category-select');
             const categoryArrow = document.getElementById('category-arrow');
 
-            // Rotate arrow on mousedown (just before open/close)
+            // Using parent container for event delegation because options are rebuilt dynamically
+            const selectContainer = categorySelect.parentElement;
+
             categorySelect.addEventListener('mousedown', () => {
-                // Check for the arrow element every time, just in case
                 if (categoryArrow) {
                     const currentRotation = categoryArrow.style.transform;
-                    // If it's not 90deg, set it to 90deg. This handles empty string "" and "rotate(0deg)"
-                    if (currentRotation !== 'rotate(90deg)') {
-                        categoryArrow.style.transform = 'rotate(90deg)';
-                    } else {
-                        // If it is already 90deg (e.g., clicking to close), set it to 0.
-                        categoryArrow.style.transform = 'rotate(0deg)';
-                    }
+                    categoryArrow.style.transform = currentRotation !== 'rotate(90deg)' ? 'rotate(90deg)' : 'rotate(0deg)';
                 }
             });
 
-            // Rotate arrow back on change or blur (dropdown close)
             const rotateArrowBack = () => {
-                // Add the same check here
-                if (categoryArrow) {
-                    categoryArrow.style.transform = 'rotate(0deg)'; // Back to original position
-                }
+                if (categoryArrow) categoryArrow.style.transform = 'rotate(0deg)';
             };
 
             categorySelect.addEventListener('change', rotateArrowBack);
             categorySelect.addEventListener('blur', rotateArrowBack);
             // --- END ---
 
-            // Set initial state for the output
-            if (outputElement) { // Added a check for outputElement too
+            // Initial Output State
+            if (outputElement) {
                 outputElement.textContent = "Enter values";
                 outputElement.classList.add('text-rb-beige', 'text-2xl', 'opacity-75'); 
             }
-            if (originalPriceElement) { // NEW: Hide on load
+            if (originalPriceElement) {
                 originalPriceElement.classList.add('hidden');
             }
 
-            // Attach event listeners ONLY to the button and Enter key 
+            // Button Listener
             document.getElementById('calculate-btn').addEventListener('click', calculatePrice);
             
-            // Enable calculation on 'Enter' key press in either input field
-            document.getElementById('rmb-input').addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') calculatePrice();
+            // Enter Key Listeners for all inputs
+            const inputs = ['rmb-input', 'weight-input', 'bdt-input', 'category-select'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('keydown', function(event) {
+                        if (event.key === 'Enter') calculatePrice();
+                    });
+                }
             });
-            document.getElementById('weight-input').addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') calculatePrice();
-            });
-            document.getElementById('category-select').addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') calculatePrice();
-            });
+
+            // Initialize Toggle State (ensure UI matches JS state)
+            switchMode('import');
         });
         
     </script>
@@ -212,53 +360,88 @@
     <div class="w-full max-w-md bg-rb-burgundy/80 backdrop-blur-sm shadow-2xl p-6 md:p-8 rounded-xl border border-rb-beige/30">
         
         <!-- Header and Logo -->
-        <!-- Removed mb-8 from header to reduce gap below logo -->
-        <header class="text-center mb-0">
-            
-            <!-- LOGO: Reduced size from w-64 h-64 to w-56 h-56 -->
+        <header class="text-center mb-6">
             <img 
                 src="https://i.imgur.com/NQ83zYJ.png" 
                 alt="Rose Bianco Logo" 
                 referrerpolicy="no-referrer"
-                class="mx-auto w-56 h-56 object-contain"
+                class="mx-auto w-48 h-48 object-contain"
             >
-            
-            <!-- Title and Subtitle removed as requested -->
         </header>
 
-        <!-- Input Fields -->
-        <!-- Reduced pt-4 to pt-2 to tighten space below logo -->
+        <!-- TOGGLE SWITCH -->
+        <div class="mb-8 px-4">
+            <div id="mode-toggle-container" class="toggle-container relative w-full h-12 flex items-center p-1" onclick="switchMode(currentMode === 'import' ? 'direct' : 'import')">
+                <!-- Sliding Background -->
+                <div class="toggle-slider shadow-md"></div>
+                
+                <!-- Import Label -->
+                <div class="w-1/2 text-center" onclick="event.stopPropagation(); switchMode('import')">
+                    <span id="label-import" class="toggle-text text-rb-burgundy font-bold text-sm tracking-wider uppercase">
+                        Import
+                    </span>
+                </div>
+                
+                <!-- Direct Label -->
+                <div class="w-1/2 text-center" onclick="event.stopPropagation(); switchMode('direct')">
+                    <span id="label-direct" class="toggle-text text-rb-beige text-sm tracking-wider uppercase">
+                        Direct
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Fields Container -->
         <div class="space-y-6 pt-2">
             
-            <!-- RMB Input -->
-            <div>
-                <label for="rmb-input" class="block text-sm font-medium text-rb-beige mb-2">
-                    RMB (¥)
-                </label>
-                <input 
-                    type="number" 
-                    id="rmb-input" 
-                    placeholder="e.g., 50"
-                    min="0"
-                    class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
-                >
+            <!-- SECTION: IMPORT INPUTS (RMB + WEIGHT) -->
+            <div id="inputs-import">
+                <div class="space-y-6">
+                    <div>
+                        <label for="rmb-input" class="block text-sm font-medium text-rb-beige mb-2">
+                            RMB (¥)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="rmb-input" 
+                            placeholder="e.g., 50"
+                            min="0"
+                            class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
+                        >
+                    </div>
+                    
+                    <div>
+                        <label for="weight-input" class="block text-sm font-medium text-rb-beige mb-2">
+                            WEIGHT (G)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="weight-input" 
+                            placeholder="e.g., 350"
+                            min="0"
+                            class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: DIRECT INPUTS (BDT) -->
+            <div id="inputs-direct" class="hidden">
+                <div>
+                    <label for="bdt-input" class="block text-sm font-medium text-rb-beige mb-2">
+                        CUSTOMER PRICE (৳)
+                    </label>
+                    <input 
+                        type="number" 
+                        id="bdt-input" 
+                        placeholder="e.g., 1500"
+                        min="0"
+                        class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
+                    >
+                </div>
             </div>
             
-            <!-- Weight Input -->
-            <div>
-                <label for="weight-input" class="block text-sm font-medium text-rb-beige mb-2">
-                    WEIGHT (G)
-                </label>
-                <input 
-                    type="number" 
-                    id="weight-input" 
-                    placeholder="e.g., 350"
-                    min="0"
-                    class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy placeholder-rb-burgundy/50 focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner"
-                >
-            </div>
-            
-            <!-- Category Dropdown -->
+            <!-- SHARED: Category Dropdown -->
             <div>
                 <label for="category-select" class="block text-sm font-medium text-rb-beige mb-2">
                     PRICE FOR
@@ -269,12 +452,10 @@
                         id="category-select" 
                         class="w-full px-4 py-3 rounded-lg bg-rb-beige text-rb-burgundy focus:outline-none focus:ring-2 focus:ring-rb-beige/90 transition duration-150 shadow-inner appearance-none pr-10 hover:bg-rb-beige/80"
                     >
-                        <option value="customer" selected>Customer</option>
-                        <option value="friends">Friends & Relatives</option>
-                        <option value="family">Family</option>
-                        <option value="personal">Personal</option>
+                        <!-- Options populated by JS -->
+                        <option value="customer">Customer</option>
                     </select>
-                    <!-- NEW: SVG Arrow Icon -->
+                    <!-- SVG Arrow Icon -->
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
                         <svg id="category-arrow" class="transition-transform duration-150" viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M19 9L12 15L5 9" stroke="#4c222c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -300,7 +481,7 @@
                 <span id="output-price" class="font-extrabold transition-all duration-300 tracking-tighter">
                     
                 </span>
-                <!-- NEW: Added a span for the original price, initially hidden. Changed opacity to 60% -->
+                <!-- Original Price Span -->
                 <span id="original-price" class="block text-sm font-medium text-rb-beige mb-2"></span>
             </div>
         </div>
@@ -309,5 +490,3 @@
 
 </body>
 </html>
-
-
