@@ -55,7 +55,7 @@
 
         /**
          * Performs the selling price calculation based on the formula:
-         * Selling Price = (((RMB * 21) + WEIGHT + 945) * 1.30) (30% markup)
+         * Selling Price = (((RMB * 21) + WEIGHT + 945 'currenty 825') * 1.30) (20% markup)
          */
         function calculatePrice() {
             const rmbInput = document.getElementById('rmb-input');
@@ -92,12 +92,12 @@
             switch (category) {
                 case 'customer':
                     baseConstant = 825;
-                    markup = 1.15; // 15% markup
+                    markup = 1.30; // 30% markup
                     extraFee = 1.01; // Add 1% on top of the marked-up price
                     break;
                 case 'friends':
                     baseConstant = 825;
-                    markup = 1.10; // 10% markup
+                    markup = 1.05; // 5% markup
                     extraFee = 1.01;
                     break;
                 case 'family':
@@ -309,4 +309,5 @@
 
 </body>
 </html>
+
 
